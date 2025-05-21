@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -58,10 +59,10 @@ from torch.utils.data import DataLoader
 
 batch_size = 64
 
-train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=4)
+train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=0)
 
 validation = TimeSeriesDataSet.from_dataset(training, df_prueba, predict=False, stop_randomization=True)
-val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size, num_workers=4)
+val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size, num_workers=0)
 
 from pytorch_lightning import seed_everything
 
