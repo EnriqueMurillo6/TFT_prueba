@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -31,7 +30,7 @@ df_train["carb"] = df_train["carb"].fillna(0)
 df_train["bolus"] = df_train["bolus"].fillna(0)
 df_train["basal_rate"] = df_train["basal_rate"].ffill().bfill()
 
-df_prueba = df_train[:30000]
+df_prueba = df_train[:500000]
 df_prueba["time_idx"] = df_prueba.groupby("group_id").cumcount()
 df_prueba["group_id"] = df_prueba["group_id"].astype(str)
 
@@ -57,21 +56,20 @@ training = TimeSeriesDataSet(
 )
 from torch.utils.data import DataLoader
 
-batch_size = 64
+batch_size = 256
 
 train_dataloader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=0)
 
-validation = TimeSeriesDataSet.from_dataset(training, df_prueba, predict=False, stop_randomization=True)
+validation = TimeSeriesDataSet.from_dataset(training, df_prueba, predict=True, stop_randomization=True)
 val_dataloader = validation.to_dataloader(train=False, batch_size=batch_size, num_workers=0)
 
 from pytorch_lightning import seed_everything
 
 seed_everything(42)
 
-
 tft = TemporalFusionTransformer.from_dataset(
     training,
-    learning_rate=0.03,
+    learning_rate=0.001,
     hidden_size=16,
     attention_head_size=1,
     dropout=0.1,
@@ -95,19 +93,35 @@ trainer.fit(
     train_dataloaders=train_dataloader,
     val_dataloaders=val_dataloader,
 )
+
+
 best_model_path = trainer.checkpoint_callback.best_model_path
 best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
-
 predictions = best_tft.predict(
     val_dataloader, return_y=True, trainer_kwargs=dict(accelerator="cpu")
 )
 
-print(RMSE()(predictions.output, predictions.y))
+print(f'RMSE: {RMSE()(predictions.output, predictions.y)}')
+print(f'Predictions: {predictions.output} vs Y_true: {predictions.y}')
+'''
+y_pred = predictions.output.detach().cpu().numpy().squeeze()
+y_true = predictions.y[0].detach().cpu().numpy().squeeze()
+
+
+plt.figure(figsize=(8, 6))
+plt.scatter(y_pred, y_true, alpha=0.5)
+plt.xlabel('y_pred')
+plt.ylabel('y_true')
+plt.title('True vs Predicted')
+plt.grid(True)
+plt.savefig('true_vs_predicted.png', dpi=300, bbox_inches='tight')
+plt.close()
+'''
 raw_predictions = best_tft.predict(
     val_dataloader, mode="raw", return_x=True, trainer_kwargs=dict(accelerator="cpu")
 )
 
-for idx in range(10):  # plot 10 examples
+for idx in range(25):  # plot 10 examples
     best_tft.plot_prediction(
         raw_predictions.x, raw_predictions.output, idx=idx, add_loss_to_title=True
     )
